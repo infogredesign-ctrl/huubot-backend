@@ -5,9 +5,8 @@ const app = express();
 app.use(express.json());
 
 const SYSTEM_PROMPT = `
-SEM VLOŽ CELÝ HUu PROMPT,
-KTORÝ SOM TI POSLAL
-(bez akýchkoľvek zmien)
+SEM VLOŽ CELÝ HUu PROMPT
+(bez zmeny, bez úprav)
 `;
 
 app.post("/api/chat", async (req, res) => {
@@ -18,7 +17,7 @@ app.post("/api/chat", async (req, res) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": \`Bearer \${process.env.OPENAI_API_KEY}\`
+        "Authorization": "Bearer " + process.env.OPENAI_API_KEY
       },
       body: JSON.stringify({
         model: "gpt-4o-mini",
@@ -34,11 +33,11 @@ app.post("/api/chat", async (req, res) => {
 
     res.json({ reply });
   } catch (err) {
+    console.error(err);
     res.status(500).json({ reply: "Prepáč, nastala technická chyba." });
   }
 });
 
 app.listen(3000, () => {
-  console.log("Huu backend beží na porte 3000");
+  console.log("Huu backend beží");
 });
-
