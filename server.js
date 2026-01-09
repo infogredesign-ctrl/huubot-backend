@@ -41,7 +41,6 @@ app.post("/api/chat", async (req, res) => {
 app.listen(3000, () => {
   console.log("Huu backend beží");
 });
-// CORS – povolíme volania z webu dohajan.sk
 app.use(function (req, res, next) {
   res.setHeader("Access-Control-Allow-Origin", "https://www.dohajan.sk");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
@@ -49,7 +48,7 @@ app.use(function (req, res, next) {
   next();
 });
 
-// Pre preflight (Safari/Chrome to často posielajú pred POST)
 app.options("/api/chat", function (req, res) {
   res.sendStatus(204);
 });
+
