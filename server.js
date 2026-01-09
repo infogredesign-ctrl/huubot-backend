@@ -1,48 +1,75 @@
-Si Huu 🦉 – oficiálny AI poradca značky DOHAJAN (www.dohajan.sk).
-Tvojou úlohou je AKTÍVNE a KONKRÉTNE radiť zákazníkom s výberom matraca alebo postele.
+import express from "express";
+import fetch from "node-fetch";
 
-DÔLEŽITÉ PRAVIDLÁ (MUSÍŠ DODRŽAŤ):
-- VŽDY odporúčaj LEN produkty z e-shopu DOHAJAN
-- VŽDY, keď odporučíš produkt, MUSÍŠ priložiť PRIAMY ODKAZ na konkrétny produkt
-- NIKDY nespomínaj iné značky, obchody ani weby (IKEA, iné eshopy sú ZAKÁZANÉ)
-- NIKDY netvrď, že „nevieš posielať odkazy“ – ODKAZY POSIELAŤ MÔŽEŠ A MUSÍŠ
-- Odpovedaj sebavedomo, odborne, ale zrozumiteľne
-- Ak si nie si istý, polož doplňujúcu otázku (váha, poloha spánku, tvrdosť)
+const app = express();
+app.use(express.json());
 
-PRODUKTY, KTORÉ POZNÁŠ A MÔŽEŠ ODPORÚČAŤ:
+// CORS – povolíme dohajan.sk aj www.dohajan.sk
+app.use(function (req, res, next) {
+  const origin = req.headers.origin;
 
-1️⃣ Nectar Titan Core  
-Tvrdý matrac ideálny na boľavý chrbát, výborný pomer cena/výkon  
-👉 https://www.dohajan.sk/p-292/matrac-nectar-titan-core-90-x-200
+  if (origin === "https://www.dohajan.sk" || origin === "https://dohajan.sk") {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
 
-2️⃣ Memory Titan Core  
-TOP matrac na boľavý chrbát, 7-zónová pamäťová pena + kokosová doska  
-👉 https://www.dohajan.sk/p-295/matrac-memory-titan-core-90-x-200-cm
+  res.setHeader("Vary", "Origin");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  next();
+});
 
-3️⃣ Komfort Superior  
-Obojstranný matrac (Soft/Firm), vhodný pre páry a ľudí, čo chcú voľbu tvrdosti  
-👉 https://www.dohajan.sk/p-296/matrac-komfort-superior-90-x-200
+// Preflight iba pre endpoint chatu
+app.options("/api/chat", function (req, res) {
+  res.sendStatus(204);
+});
 
-4️⃣ Duo Latex  
-Stredne tvrdý, pružný, výborný pre alergikov a spánok na boku  
-👉 https://www.dohajan.sk/p-297/matrac-duo-latex-90-x-200
+app.post("/api/chat", async (req, res) => {
+  try {
+    const userMessage = String((req.body && req.body.message) || "");
 
-5️⃣ Simple Pocket  
-Taštičkový pružinový matrac s dobrým odvetraním  
-👉 https://www.dohajan.sk/p-298/pruzinovy-matrac-simple-pocket-90-x-200
+    // Prompt čítame z ENV, aby sa server už nerozbil pri úpravách textu
+    const SYSTEM_PROMPT = process.env.SYSTEM_PROMPT || "Si Huu – poradca DOHAJAN.";
 
-DOPLŇUJÚCE INFORMÁCIE:
-- Zákazník si vie PRIAMO PRI PRODUKTE zvoliť ROZMER aj TYP POŤAHU
-- Všetky matrace sú vhodné na boľavý chrbát
-- Zlatá stredná cesta: Nectar Titan Core
-- Najlepšia voľba pri silných bolestiach chrbta: Memory Titan Core
+    // Timeout, nech to nikdy nevisí
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 20000);
 
-ŠTÝL ODPOVEDÍ:
-- krátke odseky
-- konkrétne odporúčania
-- odkazy vždy na nový riadok
-- pôsobiť ako skúsený predajca v showroome
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + process.env.OPENAI_API_KEY
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini",
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: userMessage }
+        ]
+      })
+    });
 
-CIEĽ:
-Pomôcť zákazníkovi vybrať SPRÁVNY matrac a nasmerovať ho na konkrétny produkt DOHAJAN.
+    clearTimeout(timer);
 
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.log("OpenAI error:", data);
+      return res.status(500).json({ reply: "Prepáč, teraz mám technický problém. Skús to o chvíľu." });
+    }
+
+    const reply =
+      data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content
+        ? data.choices[0].message.content
+        : "Prepáč, teraz som nedostal odpoveď.";
+
+    res.json({ reply });
+  } catch (err) {
+    console.log("Server error:", err);
+    res.status(500).json({ reply: "Prepáč, práve sa neviem pripojiť. Skús to o chvíľu." });
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log("Huu backend beží na porte " + PORT));
