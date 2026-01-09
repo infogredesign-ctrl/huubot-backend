@@ -4,14 +4,24 @@ import fetch from "node-fetch";
 const app = express();
 app.use(express.json());
 
-const SYSTEM_PROMPT = `
-SEM VLOŽ CELÝ HUu PROMPT
-(bez zmeny, bez úprav)
-`;
+// ✅ CORS – povolíme dohajan.sk aj www.dohajan.sk
+app.use(function (req, res, next) {
+  const origin = req.headers.origin;
 
+  if (origin === "https://www.dohajan.sk" || origin === "https://dohajan.sk") {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
+
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+  next();
+});
+
+// ⚠️ Preflight len pre /api/chat (nie globálne *)
 app.post("/api/chat", async (req, res) => {
   try {
-    const userMessage = req.body.message;
+    const userMessage = String(req.body.message || "");
+    console.log("CHAT:", userMessage);
 
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -22,37 +32,32 @@ app.post("/api/chat", async (req, res) => {
       body: JSON.stringify({
         model: "gpt-4o-mini",
         messages: [
-          { role: "system", content: SYSTEM_PROMPT },
+          { role: "system", content: process.env.SYSTEM_PROMPT || "Si poradca matracov DOHAJAN." },
           { role: "user", content: userMessage }
         ]
       })
     });
 
     const data = await response.json();
-    const reply = data.choices[0].message.content;
 
-    res.json({ reply });
+    res.json({
+      reply:
+        data &&
+        data.choices &&
+        data.choices[0] &&
+        data.choices[0].message &&
+        data.choices[0].message.content
+          ? data.choices[0].message.content
+          : "Prepáč, teraz som nedostal odpoveď."
+    });
   } catch (err) {
-    console.error(err);
+    console.error("SERVER ERROR:", err);
     res.status(500).json({ reply: "Prepáč, nastala technická chyba." });
   }
 });
 
-// CORS – povolíme dohajan.sk aj www.dohajan.sk
-app.use(function (req, res, next) {
-  var origin = req.headers.origin;
-
-  if (origin === "https://www.dohajan.sk" || origin === "https://dohajan.sk") {
-    res.setHeader("Access-Control-Allow-Origin", origin);
-  }
-
-  res.setHeader("Vary", "Origin");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  res.setHeader("Access-Control-Allow-Headers", "Content-Type");
-  next();
-});
-
-// Preflight pre Safari/Chrome – musí odpovedať okamžite
-app.options("*", function (req, res) {
-  res.sendStatus(204);
+// ✅ Render port
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log("Huu backend beží na porte", PORT);
 });
