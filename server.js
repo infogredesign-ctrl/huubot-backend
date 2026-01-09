@@ -38,17 +38,21 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
-app.listen(3000, () => {
-  console.log("Huu backend beží");
-});
+// CORS – povolíme dohajan.sk aj www.dohajan.sk
 app.use(function (req, res, next) {
-  res.setHeader("Access-Control-Allow-Origin", "https://www.dohajan.sk");
+  var origin = req.headers.origin;
+
+  if (origin === "https://www.dohajan.sk" || origin === "https://dohajan.sk") {
+    res.setHeader("Access-Control-Allow-Origin", origin);
+  }
+
+  res.setHeader("Vary", "Origin");
   res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
   next();
 });
 
-app.options("/api/chat", function (req, res) {
+// Preflight pre Safari/Chrome – musí odpovedať okamžite
+app.options("*", function (req, res) {
   res.sendStatus(204);
 });
-
